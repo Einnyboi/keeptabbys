@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "515455561902",
+    "project_id": "keeptabbys",
+    "storage_bucket": "keeptabbys.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515455561902:android:a975668005c557d4a87d3f",
+        "android_client_info": {
+          "package_name": "com.example.keeptabbys"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyojZ-VwtUoOw6Vke4E_Q-Lth6mc3YnDo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
