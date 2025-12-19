@@ -28,6 +28,16 @@ class LobbyService {
         'participantIds': [], // Placeholder for users
       });
 
+      // Add the host as the first participant
+      await _db.collection('sessions').doc(roomId).collection('participants').add({
+        'displayName': hostName,
+        'isGuest': false,
+        'isHost': true, // This person is the host
+        'status': 'active',
+        'joinedAt': FieldValue.serverTimestamp(),
+        'totalOwed': 0,
+      });
+
       return roomId; // Return the code so UI can show it
     } catch (e) {
       print("Error creating session: $e");
@@ -41,6 +51,7 @@ class LobbyService {
       await _db.collection('sessions').doc(roomId).collection('participants').add({
         'displayName': name,
         'isGuest': true, // Flag to know this isn't a real user account
+        'isHost': false,
         'status': 'unpaid', 
         'joinedAt': FieldValue.serverTimestamp(),
         // We will store their items here later
@@ -73,6 +84,7 @@ class LobbyService {
       await _db.collection('sessions').doc(roomId).collection('participants').add({
         'displayName': userName,
         'isGuest': false, // False because they are a real user on their own phone
+        'isHost': false,
         'status': 'active',
         'joinedAt': FieldValue.serverTimestamp(),
         'totalOwed': 0,
@@ -83,5 +95,51 @@ class LobbyService {
       print("Error joining session: $e");
       rethrow;
     }
-  } 
+  }
+
+  // Save bill split data to Firestore
+  Future<void> saveBillSplit({
+    required String roomId,
+    required List<Map<String, dynamic>> items,
+    required Map<String, double> totals,
+  }) async {
+    try {
+      await _db.collection('sessions').doc(roomId).update({
+        'billItems': items,
+        'billTotals': totals,
+        'billFinalized': true,
+        'finalizedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Update each participant's totalOwed
+      for (var entry in totals.entries) {
+        await _db
+            .collection('sessions')
+            .doc(roomId)
+            .collection('participants')
+            .doc(entry.key)
+            .update({'totalOwed': entry.value});
+      }
+    } catch (e) {
+      print("Error saving bill split: $e");
+      rethrow;
+    }
+  }
+
+  // Check if bill has been finalized
+  Future<bool> hasBillData(String roomId) async {
+    try {
+      DocumentSnapshot doc = await _db.collection('sessions').doc(roomId).get();
+      if (!doc.exists) return false;
+      var data = doc.data() as Map<String, dynamic>?;
+      return data?['billFinalized'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Get bill data
+  Stream<DocumentSnapshot> getBillData(String roomId) {
+    return _db.collection('sessions').doc(roomId).snapshots();
+  }
 }

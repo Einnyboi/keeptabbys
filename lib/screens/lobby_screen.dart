@@ -54,6 +54,48 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
+  // Navigate to existing bill summary
+  void _viewBillSummary() async {
+    final hasBill = await LobbyService().hasBillData(widget.roomId);
+    
+    if (hasBill && mounted) {
+      final billDoc = await FirebaseFirestore.instance
+          .collection('sessions')
+          .doc(widget.roomId)
+          .get();
+      
+      if (billDoc.exists) {
+        var data = billDoc.data() as Map<String, dynamic>;
+        List<dynamic> itemsData = data['billItems'] ?? [];
+        Map<String, dynamic> totalsData = Map<String, dynamic>.from(data['billTotals'] ?? {});
+        
+        // Convert back to BillItem objects
+        List<BillItem> items = itemsData.map((item) => BillItem(
+          name: item['name'],
+          price: (item['price'] as num).toDouble(),
+          assignedToId: item['assignedToId'],
+        )).toList();
+        
+        Map<String, double> totals = totalsData.map(
+          (key, value) => MapEntry(key, (value as num).toDouble())
+        );
+        
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BillSummaryScreen(
+                roomId: widget.roomId,
+                items: items,
+                totals: totals,
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -136,7 +178,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     ),
                   ],
                 ),
-                if (widget.isHost) ..[
+                if (widget.isHost) ...[
                   const SizedBox(height: 12),
                   const Divider(color: Colors.white24, height: 1),
                   const SizedBox(height: 12),
@@ -152,7 +194,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       ),
                     ],
                   ),
-                ] else ..[
+                ] else ...[
                   const SizedBox(height: 12),
                   const Divider(color: Colors.white24, height: 1),
                   const SizedBox(height: 12),
@@ -218,7 +260,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         itemCount: people.length,
                         itemBuilder: (context, index) {
                           var person = people[index];
-                          bool isHost = person['isHost'] ?? false;
+                          var data = person.data() as Map<String, dynamic>;
+                          bool isHost = data['isHost'] ?? false;
                           
                           return Card(
                             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -228,14 +271,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               leading: CircleAvatar(
                                 backgroundColor: isHost ? Colors.teal : Colors.orange.shade200,
                                 child: Text(
-                                  person['displayName'][0].toUpperCase(),
+                                  (data['displayName'] ?? 'U')[0].toUpperCase(),
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                               ),
                               title: Row(
                                 children: [
                                   Text(
-                                    person['displayName'],
+                                    data['displayName'] ?? 'Unknown',
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   if (isHost) ...[
@@ -259,7 +302,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                 ],
                               ),
                               subtitle: Text(
-                                person['status'] ?? 'Ready',
+                                data['status'] ?? 'Ready',
                                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                               ),
                               trailing: Icon(Icons.check_circle, color: Colors.green.shade400, size: 20),
@@ -334,22 +377,89 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ],
       ),
       
-      // 4. BIG SCAN BUTTON (Only shows for Host)
-      bottomNavigationBar: widget.isHost ? Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: ElevatedButton.icon(
-          onPressed: _scanReceipt, // <--- Calls the camera
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.teal,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 5,
-          ),
-          icon: const Icon(Icons.camera_alt_rounded, size: 28),
-          label: const Text("SCAN RECEIPT", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ),
-      ) : null,
+      // 4. Bottom Actions - Scan or View Bill
+      bottomNavigationBar: FutureBuilder<bool>(
+        future: LobbyService().hasBillData(widget.roomId),
+        builder: (context, snapshot) {
+          bool hasBill = snapshot.data ?? false;
+          
+          if (hasBill) {
+            // Show "View Bill Summary" for everyone
+            return Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _viewBillSummary,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size(double.infinity, 0),
+                    ),
+                    icon: const Icon(Icons.receipt_long, size: 24),
+                    label: const Text(
+                      "VIEW BILL SUMMARY",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  if (widget.isHost) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _scanReceipt,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.teal),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(double.infinity, 0),
+                      ),
+                      icon: const Icon(Icons.camera_alt, color: Colors.teal),
+                      label: const Text(
+                        "Rescan Receipt",
+                        style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          } else if (widget.isHost) {
+            // Show scan button for host only (no bill yet)
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: ElevatedButton.icon(
+                onPressed: _scanReceipt,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 5,
+                ),
+                icon: const Icon(Icons.camera_alt_rounded, size: 28),
+                label: const Text(
+                  "SCAN RECEIPT",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          } else {
+            return const SizedBox.shrink();
+          }
+        },
+      ),
     );
   }
 }
