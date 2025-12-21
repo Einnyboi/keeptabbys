@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/scanner_service.dart';
 import '../services/lobby_service.dart';
 
@@ -53,6 +54,170 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
     }
   }
 
+  // Add manual item
+  void _addManualItem() async {
+    final nameController = TextEditingController();
+    final priceController = TextEditingController();
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Add Item"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(
+                labelText: "Item Name",
+                hintText: "e.g. Coffee",
+              ),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(
+                labelText: "Price",
+                hintText: "e.g. 5000",
+                prefixText: "\$",
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final priceText = priceController.text.trim();
+              final price = double.tryParse(priceText);
+
+              if (name.isEmpty || price == null || price <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please enter valid name and price")),
+                );
+                return;
+              }
+
+              Navigator.pop(context, {'name': name, 'price': price});
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _items.add(BillItem(name: result['name'], price: result['price']));
+      });
+    }
+  }
+
+  // Edit existing item
+  void _editItem(int index) async {
+    final item = _items[index];
+    final nameController = TextEditingController(text: item.name);
+    final priceController = TextEditingController(text: item.price.toString());
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Item"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: "Item Name"),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(
+                labelText: "Price",
+                prefixText: "\$",
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              final priceText = priceController.text.trim();
+              final price = double.tryParse(priceText);
+
+              if (name.isEmpty || price == null || price <= 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please enter valid name and price")),
+                );
+                return;
+              }
+
+              Navigator.pop(context, {'name': name, 'price': price});
+            },
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _items[index] = BillItem(
+          name: result['name'],
+          price: result['price'],
+          assignedToId: item.assignedToId, // Keep assignment
+        );
+      });
+    }
+  }
+
+  // Delete item
+  void _deleteItem(int index) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Item?"),
+        content: Text("Remove \"${_items[index].name}\" from the bill?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _items.removeAt(index);
+        if (_selectedItemIndex == index) {
+          _selectedItemIndex = null;
+        } else if (_selectedItemIndex != null && _selectedItemIndex! > index) {
+          _selectedItemIndex = _selectedItemIndex! - 1;
+        }
+      });
+    }
+  }
+
   // Rescan the receipt
   void _rescanReceipt() async {
     final confirmed = await showDialog<bool>(
@@ -73,22 +238,54 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Opening camera...")),
-      );
+    if (confirmed != true || !mounted) return;
 
-      List<BillItem> newItems = await ScannerService().scanAndParse();
-      
-      if (newItems.isNotEmpty && mounted) {
-        setState(() {
-          _items = newItems;
-          _selectedItemIndex = 0;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Scanned ${newItems.length} items")),
-        );
-      }
+    // Ask for image source
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Choose Source"),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.photo_library),
+            label: const Text("Gallery"),
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.camera_alt),
+            label: const Text("Camera"),
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+          ),
+        ],
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Processing...")),
+    );
+
+    List<BillItem> newItems = await ScannerService().scanAndParse(source: source);
+    
+    if (newItems.isNotEmpty && mounted) {
+      setState(() {
+        _items = newItems;
+        _selectedItemIndex = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("✓ Found ${newItems.length} items"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No items detected. Try a clearer photo."),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
@@ -137,6 +334,11 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
       appBar: AppBar(
         title: Text("Assign Items ($assignedCount/${_items.length})"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: "Add Item",
+            onPressed: _addManualItem,
+          ),
           IconButton(
             icon: const Icon(Icons.camera_alt),
             tooltip: "Rescan Receipt",
@@ -193,11 +395,27 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
                           "\$${item.price.toStringAsFixed(2)}",
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        if (isAssigned) 
-                          const Padding(
-                            padding: EdgeInsets.only(left: 8.0),
-                            child: Icon(Icons.check_circle, color: Colors.green, size: 16),
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 18),
+                              onPressed: () => _editItem(index),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                              onPressed: () => _deleteItem(index),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                            const SizedBox(width: 8),
+                            if (isAssigned) 
+                              const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                          ],
+                        ),
                       ],
                     ),
                   ),

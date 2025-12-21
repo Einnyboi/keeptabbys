@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/lobby_service.dart';
 import '../services/scanner_service.dart';
 import 'bill_split_screen.dart';
@@ -22,20 +23,44 @@ class LobbyScreen extends StatefulWidget {
 class _LobbyScreenState extends State<LobbyScreen> {
   final TextEditingController _nameController = TextEditingController();
 
-  // Function to launch Camera
+  // Show image source options
   void _scanReceipt() async {
-    // 1. Show Loading
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Processing Receipt...")),
+    final source = await showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Scan Receipt"),
+        content: const Text("Choose how to get the receipt image"),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.photo_library),
+            label: const Text("Gallery"),
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.camera_alt),
+            label: const Text("Camera"),
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+          ),
+        ],
+      ),
     );
 
-    // 2. Call the NEW Parser
-    List<BillItem> items = await ScannerService().scanAndParse();
+    if (source == null) return;
+
+    // Show loading
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Processing Receipt...")),
+      );
+    }
+
+    // Scan with selected source
+    List<BillItem> items = await ScannerService().scanAndParse(source: source);
 
     if (items.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       
-      // 3. Navigate to Split Screen with the data
+      // Navigate to Split Screen with the data
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -48,7 +73,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
     } else {
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Could not read receipt price data.")),
+           const SnackBar(
+             content: Text("No items detected. Try a clearer photo or add items manually."),
+             duration: Duration(seconds: 3),
+           ),
          );
       }
     }

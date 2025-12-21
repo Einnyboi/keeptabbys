@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:math';
 
 class LobbyService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // generate a random 6-digit room code
   String _generateRoomCode() {
@@ -14,12 +16,15 @@ class LobbyService {
   Future<String> createSession({required String hostName}) async {
     try {
       String roomId = _generateRoomCode();
+      User? currentUser = _auth.currentUser;
       
       // use the roomID as the document ID
       // creates the session main document
       await _db.collection('sessions').doc(roomId).set({
         'roomId': roomId,
         'hostName': hostName,
+        'hostUid': currentUser?.uid, // Store authenticated user ID
+        'hostEmail': currentUser?.email, // Store email for reference
         'status': 'active', // active, locked, finished
         'createdAt': FieldValue.serverTimestamp(),
         'taxRate': 0.10, // Default 10%
@@ -31,6 +36,8 @@ class LobbyService {
       // Add the host as the first participant
       await _db.collection('sessions').doc(roomId).collection('participants').add({
         'displayName': hostName,
+        'userId': currentUser?.uid, // Link to authenticated user
+        'userEmail': currentUser?.email,
         'isGuest': false,
         'isHost': true, // This person is the host
         'status': 'active',
@@ -73,6 +80,8 @@ class LobbyService {
   }
  Future<bool> joinSession({required String roomId, required String userName}) async {
     try {
+      User? currentUser = _auth.currentUser;
+      
       // 1. Check if the room actually exists
       DocumentSnapshot roomDoc = await _db.collection('sessions').doc(roomId).get();
       
@@ -83,6 +92,8 @@ class LobbyService {
       // 2. Add them to the participants list
       await _db.collection('sessions').doc(roomId).collection('participants').add({
         'displayName': userName,
+        'userId': currentUser?.uid, // Link to authenticated user
+        'userEmail': currentUser?.email,
         'isGuest': false, // False because they are a real user on their own phone
         'isHost': false,
         'status': 'active',

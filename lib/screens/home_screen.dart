@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/lobby_service.dart';
+import '../services/auth_service.dart';
 import 'join_screen.dart';
 import 'lobby_screen.dart';
+import 'auth_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -20,6 +22,38 @@ class HomeScreen extends StatelessWidget {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("History coming soon!")),
               );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: "Sign Out",
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text("Sign Out?"),
+                  content: const Text("Are you sure you want to sign out?"),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text("Sign Out", style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true && context.mounted) {
+                await AuthService().signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => const AuthScreen()),
+                  );
+                }
+              }
             },
           ),
           const SizedBox(width: 10),
@@ -62,8 +96,9 @@ class HomeScreen extends StatelessWidget {
                 );
 
                 try {
-                  // B. Call the Backend
-                  String roomId = await LobbyService().createSession(hostName: "Host");
+                  // B. Call the Backend with authenticated user's name
+                  String userName = AuthService().getUserDisplayName() ?? "Host";
+                  String roomId = await LobbyService().createSession(hostName: userName);
 
                   // C. Success!
                   print("✅ Room Created: $roomId");
