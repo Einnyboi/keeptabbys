@@ -6,9 +6,9 @@ import '../services/lobby_service.dart';
 
 class BillSplitScreen extends StatefulWidget {
   final String roomId;
-  final List<BillItem> initialItems;
+  final ReceiptData receiptData;
 
-  const BillSplitScreen({super.key, required this.roomId, required this.initialItems});
+  const BillSplitScreen({super.key, required this.roomId, required this.receiptData});
 
   @override
   State<BillSplitScreen> createState() => _BillSplitScreenState();
@@ -17,12 +17,18 @@ class BillSplitScreen extends StatefulWidget {
 class _BillSplitScreenState extends State<BillSplitScreen> {
   // Local state for items so we can assign them before saving
   late List<BillItem> _items;
+  late double _tax;
+  late double _serviceCharge;
+  late double _subtotal;
   int? _selectedItemIndex; // Which item is currently highlighted?
 
   @override
   void initState() {
     super.initState();
-    _items = widget.initialItems;
+    _items = widget.receiptData.items;
+    _tax = widget.receiptData.tax;
+    _serviceCharge = widget.receiptData.serviceCharge;
+    _subtotal = widget.receiptData.subtotal;
   }
 
   // LOGIC: Assign the currently selected item to a person
@@ -266,17 +272,21 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
       const SnackBar(content: Text("Processing...")),
     );
 
-    List<BillItem> newItems = await ScannerService().scanAndParse(source: source);
+    ReceiptData receiptData = await ScannerService().scanAndParse(source: source);
     
-    if (newItems.isNotEmpty && mounted) {
+    if (receiptData.items.isNotEmpty && mounted) {
       setState(() {
-        _items = newItems;
+        _items = receiptData.items;
+        _tax = receiptData.tax;
+        _serviceCharge = receiptData.serviceCharge;
+        _subtotal = receiptData.subtotal;
         _selectedItemIndex = 0;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("✓ Found ${newItems.length} items"),
+          content: Text("✓ Found ${receiptData.items.length} items | Tax: \$${_tax.toStringAsFixed(2)} | Service: \$${_serviceCharge.toStringAsFixed(2)}"),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
         ),
       );
     } else if (mounted) {
@@ -289,15 +299,31 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
     }
   }
 
-  // Calculate totals per person
+  // Calculate totals per person including proportional tax/service charges
   Map<String, double> _calculateTotals() {
-    Map<String, double> totals = {};
+    Map<String, double> personSubtotals = {};
+    double itemsTotal = 0.0;
+    
+    // First, get each person's subtotal from items
     for (var item in _items) {
       if (item.assignedToId != null) {
-        totals[item.assignedToId!] = (totals[item.assignedToId!] ?? 0) + item.price;
+        personSubtotals[item.assignedToId!] = 
+            (personSubtotals[item.assignedToId!] ?? 0) + item.price;
+        itemsTotal += item.price;
       }
     }
-    return totals;
+    
+    // Then apply tax and service charge proportionally
+    Map<String, double> finalTotals = {};
+    double totalCharges = _tax + _serviceCharge;
+    
+    personSubtotals.forEach((personId, subtotal) {
+      double proportion = itemsTotal > 0 ? subtotal / itemsTotal : 0;
+      double personCharges = totalCharges * proportion;
+      finalTotals[personId] = subtotal + personCharges;
+    });
+    
+    return finalTotals;
   }
 
   // Check if all items are assigned

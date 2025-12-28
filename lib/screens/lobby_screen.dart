@@ -55,9 +55,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     // Scan with selected source
-    List<BillItem> items = await ScannerService().scanAndParse(source: source);
+    ReceiptData receiptData = await ScannerService().scanAndParse(source: source);
 
-    if (items.isNotEmpty && mounted) {
+    if (receiptData.items.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       
       // Navigate to Split Screen with the data
@@ -66,7 +66,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         MaterialPageRoute(
           builder: (context) => BillSplitScreen(
             roomId: widget.roomId, 
-            initialItems: items
+            receiptData: receiptData
           ),
         ),
       );
