@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/scanner_service.dart';
 import '../services/lobby_service.dart';
+import '../utils/currency_helper.dart';
 
 class BillSplitScreen extends StatefulWidget {
   final String roomId;
@@ -85,8 +86,8 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
               controller: priceController,
               decoration: const InputDecoration(
                 labelText: "Price",
-                hintText: "e.g. 5000",
-                prefixText: "\$",
+                hintText: "e.g. 15000",
+                prefixText: "Rp ",
               ),
               keyboardType: TextInputType.number,
             ),
@@ -148,7 +149,7 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
               controller: priceController,
               decoration: const InputDecoration(
                 labelText: "Price",
-                prefixText: "\$",
+                prefixText: "Rp ",
               ),
               keyboardType: TextInputType.number,
             ),
@@ -284,7 +285,7 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("✓ Found ${receiptData.items.length} items | Tax: \$${_tax.toStringAsFixed(2)} | Service: \$${_serviceCharge.toStringAsFixed(2)}"),
+          content: Text("✓ Found ${receiptData.items.length} items | Tax: $currencySymbol${_tax.toStringAsFixed(currencyDecimals)} | Service: $currencySymbol${_serviceCharge.toStringAsFixed(currencyDecimals)}"),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
@@ -418,7 +419,7 @@ class _BillSplitScreenState extends State<BillSplitScreen> {
                           ),
                         ),
                         Text(
-                          "\$${item.price.toStringAsFixed(2)}",
+                          "$currencySymbol${item.price.toStringAsFixed(currencyDecimals)}",
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         Row(
@@ -696,7 +697,7 @@ class BillSummaryScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            "\$${amount.toStringAsFixed(2)}",
+                            "$currencySymbol${amount.toStringAsFixed(currencyDecimals)}",
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -725,7 +726,7 @@ class BillSummaryScreen extends StatelessWidget {
                                         ),
                                       ),
                                       Text(
-                                        "\$${item.price.toStringAsFixed(2)}",
+                                        "$currencySymbol${item.price.toStringAsFixed(currencyDecimals)}",
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           color: Colors.grey.shade700,
@@ -763,7 +764,7 @@ class BillSummaryScreen extends StatelessWidget {
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        "\$${grandTotal.toStringAsFixed(2)}",
+                        "$currencySymbol${grandTotal.toStringAsFixed(currencyDecimals)}",
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -956,7 +957,7 @@ class PersonBillDetailScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        "\$${total.toStringAsFixed(2)}",
+                        "$currencySymbol${total.toStringAsFixed(currencyDecimals)}",
                         style: const TextStyle(
                           fontSize: 40,
                           fontWeight: FontWeight.bold,
@@ -1031,7 +1032,7 @@ class PersonBillDetailScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            "\$${item.price.toStringAsFixed(2)}",
+                            "$currencySymbol${item.price.toStringAsFixed(currencyDecimals)}",
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,

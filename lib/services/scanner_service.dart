@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../utils/currency_helper.dart';
 
 class BillItem {
   String name;
@@ -275,9 +276,9 @@ Constraints:
         // Accept items even with 0 price for debugging
         items.add(BillItem(name: name, price: price));
         if (price > 0) {
-          print("  ✅ Added: $name - \$$price");
+          print("  ✅ Added: $name - $currencySymbol${price.toStringAsFixed(currencyDecimals)}");
         } else {
-          print("  ⚠️ Added with ZERO price: $name - \$$price");
+          print("  ⚠️ Added with ZERO price: $name - $currencySymbol${price.toStringAsFixed(currencyDecimals)}");
         }
       }
       

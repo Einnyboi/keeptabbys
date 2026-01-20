@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/lobby_service.dart';
 import 'lobby_screen.dart'; // So we can go to the lobby after joining
 
@@ -11,19 +12,28 @@ class JoinScreen extends StatefulWidget {
 
 class _JoinScreenState extends State<JoinScreen> {
   final TextEditingController _roomController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
   bool _isLoading = false;
 
   void _handleJoin() async {
     final roomId = _roomController.text.trim();
-    final name = _nameController.text.trim();
 
-    if (roomId.isEmpty || name.isEmpty) {
+    if (roomId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter both Room ID and Name")),
+        const SnackBar(content: Text("Please enter a Room Code")),
       );
       return;
     }
+
+    // Get the current user's name from Firebase Auth
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You must be logged in to join a room")),
+      );
+      return;
+    }
+
+    final userName = currentUser.displayName ?? 'Anonymous';
 
     setState(() => _isLoading = true);
 
@@ -31,7 +41,7 @@ class _JoinScreenState extends State<JoinScreen> {
       // Call our backend
       bool success = await LobbyService().joinSession(
         roomId: roomId,
-        userName: name,
+        userName: userName,
       );
 
       if (success) {
@@ -94,18 +104,6 @@ class _JoinScreenState extends State<JoinScreen> {
               ),
             ),
             
-            const SizedBox(height: 16),
-
-            // Name Input
-            TextField(
-              controller: _nameController,
-              textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                hintText: "Your Name",
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                filled: true,
-              ),
-            ),
 
             const SizedBox(height: 30),
 
