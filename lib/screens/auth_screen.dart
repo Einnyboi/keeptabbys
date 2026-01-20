@@ -72,7 +72,20 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await AuthService().signInWithGoogle();
+      final user = await AuthService().signInWithGoogle();
+
+      if (user == null) {
+        // User cancelled the sign-in
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Google sign-in cancelled"),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
