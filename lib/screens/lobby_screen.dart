@@ -23,6 +23,17 @@ class LobbyScreen extends StatefulWidget {
 class _LobbyScreenState extends State<LobbyScreen> {
   final TextEditingController _nameController = TextEditingController();
 
+  // DEBUG: Test API connection
+  void _testAPIConnection() async {
+    final scanner = ScannerService();
+    await scanner.listAvailableModels();
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Check console for available models")),
+    );
+  }
+
   // Show image source options
   void _scanReceipt() async {
     final source = await showDialog<ImageSource>(
@@ -207,6 +218,17 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   ],
                 ),
                 if (widget.isHost) ...[
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _testAPIConnection,
+                    icon: const Icon(Icons.bug_report, size: 16),
+                    label: const Text("Test API"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   const Divider(color: Colors.white24, height: 1),
                   const SizedBox(height: 12),

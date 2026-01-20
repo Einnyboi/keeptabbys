@@ -15,8 +15,19 @@ class LobbyService {
   // create a new session in Firestore
   Future<String> createSession({required String hostName}) async {
     try {
-      String roomId = _generateRoomCode();
       User? currentUser = _auth.currentUser;
+      
+      // DEBUG: Log authentication status
+      print('🔑 Current user: ${currentUser?.uid}');
+      print('🔑 Email: ${currentUser?.email}');
+      print('🔑 Is authenticated: ${currentUser != null}');
+      
+      // Check if user is authenticated
+      if (currentUser == null) {
+        throw Exception('User must be signed in to create a session');
+      }
+      
+      String roomId = _generateRoomCode();
       
       // use the roomID as the document ID
       // creates the session main document
@@ -54,6 +65,12 @@ class LobbyService {
 
   Future<void> addManualParticipant({required String roomId, required String name}) async {
     try {
+      // Check if user is authenticated
+      User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User must be signed in to add participants');
+      }
+      
       // We create a sub-collection called 'participants' inside the session
       await _db.collection('sessions').doc(roomId).collection('participants').add({
         'displayName': name,
@@ -81,6 +98,11 @@ class LobbyService {
  Future<bool> joinSession({required String roomId, required String userName}) async {
     try {
       User? currentUser = _auth.currentUser;
+      
+      // Check if user is authenticated
+      if (currentUser == null) {
+        throw Exception('User must be signed in to join a session');
+      }
       
       // 1. Check if the room actually exists
       DocumentSnapshot roomDoc = await _db.collection('sessions').doc(roomId).get();
@@ -115,6 +137,12 @@ class LobbyService {
     required Map<String, double> totals,
   }) async {
     try {
+      // Check if user is authenticated
+      User? currentUser = _auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User must be signed in to save bill data');
+      }
+      
       await _db.collection('sessions').doc(roomId).update({
         'billItems': items,
         'billTotals': totals,
