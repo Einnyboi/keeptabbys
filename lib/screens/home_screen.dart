@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import 'join_screen.dart';
 import 'lobby_screen.dart';
 import 'auth_screen.dart';
+import 'room_history_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -19,8 +20,9 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("History coming soon!")),
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const RoomHistoryScreen()),
               );
             },
           ),
